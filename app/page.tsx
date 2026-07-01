@@ -75,7 +75,6 @@ function CopyButton({ text, label = "コピー" }: { text: string; label?: strin
 export default function Page() {
   const [apiKey, setApiKey] = useState("");
   const [lpText, setLpText] = useState("");
-  const [ctaCopy, setCtaCopy] = useState("");
   const [lpUrl, setLpUrl] = useState("");
   const [persona, setPersona] = useState("");
   const [voiceSamples, setVoiceSamples] = useState("");
@@ -100,7 +99,6 @@ export default function Page() {
     if (ak) setApiKey(ak);
     setPersona(g("affi_persona"));
     setVoiceSamples(g("affi_voice"));
-    setCtaCopy(g("affi_cta"));
     setLpUrl(g("affi_lpurl"));
     setLpText(g("affi_lptext"));
     const tf = localStorage.getItem("affi_timeframe");
@@ -113,7 +111,6 @@ export default function Page() {
   }, [apiKey]);
   useEffect(() => localStorage.setItem("affi_persona", persona), [persona]);
   useEffect(() => localStorage.setItem("affi_voice", voiceSamples), [voiceSamples]);
-  useEffect(() => localStorage.setItem("affi_cta", ctaCopy), [ctaCopy]);
   useEffect(() => localStorage.setItem("affi_lpurl", lpUrl), [lpUrl]);
   useEffect(() => localStorage.setItem("affi_lptext", lpText), [lpText]);
   useEffect(() => localStorage.setItem("affi_timeframe", timeframe), [timeframe]);
@@ -148,7 +145,6 @@ export default function Page() {
           research: research ?? null,
           doResearch: true,
           options: {
-            ctaCopy,
             lpUrl,
             chosenAngle: chosenAngle ?? undefined,
             persona,
@@ -291,20 +287,14 @@ export default function Page() {
         </div>
 
         <div className="field">
-          <label className="label">CTAコピー（LPへの誘い文句）</label>
-          <p className="hint">「思わずクリックしたくなる一言」。note記事の冒頭と末尾の案内ボックスに使われます。空欄ならAIが作ります。一度決めたら毎回同じでOK。</p>
-          <textarea
-            rows={2}
-            placeholder="例: 9時〜15時までの働き方でも8年連続で年商億超え。その秘訣をこちらから、無料公開しています。"
-            value={ctaCopy}
-            onChange={(e) => setCtaCopy(e.target.value)}
-          />
-        </div>
-
-        <div className="field">
           <label className="label">あなたは何者か（立場・プロフィール）</label>
-          <p className="hint">“紹介する人”としてのあなたの立場。例:「副業を試してきた会社員」「元保育士で2児の母」。記事に視点が宿ります。</p>
-          <input type="text" placeholder="例: 副業を3年試してきた会社員" value={persona} onChange={(e) => setPersona(e.target.value)} />
+          <p className="hint">“紹介する人”としてのあなたの立場や背景。くわしく書くほど、記事に深みと説得力が出ます。経歴・きっかけ・今やっていること・どんな人かなど、自由に書いてください。</p>
+          <textarea
+            rows={5}
+            placeholder="例: 会社員をしながら3年間、いろんな副業を試してきました。時間に追われる毎日で「もっと楽にできないか」とずっと探していて、AIに出会ってから働き方が変わりました。同じように時間で消耗している人に役立つ情報を発信しています。"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+          />
         </div>
 
         <div className="field">

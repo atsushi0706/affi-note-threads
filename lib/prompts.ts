@@ -39,7 +39,6 @@ export type Angle = {
 };
 
 export type Options = {
-  ctaCopy?: string; // LPへの誘い文句（端的で魅力的なCTAコピー・基本固定。空ならAI生成）
   lpUrl?: string; // 誘導先LPのURL
   chosenAngle?: Angle; // 選択された方向性（あれば最優先で反映）
   // 書き手の人格・トーンを注入する任意項目。書くほどAIがその人に寄る
@@ -258,13 +257,7 @@ ${dailyDirection(o)}
 // ── STEP 3-a: note記事（1本・ONE HACK・別軸の案内）──
 export function notePrompt(a: Analysis, r: Research | undefined, o: Options): string {
   const url = (o.lpUrl || "（ここにLPのURLを貼ってください）").trim();
-  const ctaInstruction = o.ctaCopy?.trim()
-    ? `次の案内ボックスを、冒頭と末尾の2箇所に【そのまま・同じ内容で】置く（文言は変更しない）:
-━━━━━━━━━━━━━━
-${o.ctaCopy.trim()}
-▶ ${url}
-━━━━━━━━━━━━━━`
-    : `案内ボックスは、LP分析を元に「この案件（アフィリンク）の魅力を端的に表した、思わずクリックしたくなる1〜2文の誘い文句（CTAコピー）」を自分で作り、次の形式にする。冒頭と末尾の2箇所に【同じCTAコピー】を置く:
+  const ctaInstruction = `案内ボックスは、LP分析を元に「この案件（アフィリンク）の魅力を端的に表した、思わずクリックしたくなる1〜2文の誘い文句（CTAコピー）」をあなたが作り、次の形式にする。冒頭と末尾の2箇所に【同じCTAコピー】を置く:
 ━━━━━━━━━━━━━━
 （ここに魅力的で端的なCTAコピー1〜2文。例のトーン →「9時〜15時までの働き方でも8年連続で年商億超え。その秘訣をこちらから、無料公開しています。」）
 ▶ ${url}
