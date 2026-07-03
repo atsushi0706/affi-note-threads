@@ -1,0 +1,436 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>affi-note-threads 仕様＆プロンプト解説書</title></head><body>
+<style>
+  :root{
+    --paper:#f6f5f1; --surface:#ffffff; --ink:#1f2320; --sub:#6b6f6a;
+    --accent:#2f6f5f; --accent-deep:#234f44; --line:#e4e2db;
+    --amber:#b07b2c; --violet:#4a5db0;
+    --code-bg:#1c241f; --code-ink:#e8ece7; --code-dim:#9db0a4;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho",serif;
+    --gothic:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--gothic);line-height:1.8;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:840px;margin:0 auto;padding:56px 22px 120px}
+
+  .eyebrow{font-family:var(--gothic);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 14px}
+  h1{font-family:var(--mincho);font-weight:600;font-size:38px;line-height:1.25;letter-spacing:.01em;margin:0 0 14px;text-wrap:balance}
+  .lead{font-size:16px;color:var(--sub);margin:0 0 22px;max-width:60ch}
+  .links{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+  .links a{font-size:13px;text-decoration:none;color:var(--accent-deep);border:1px solid var(--line);background:var(--surface);padding:7px 13px;border-radius:8px;font-weight:600}
+  .links a:hover{border-color:var(--accent)}
+
+  section{margin-top:56px}
+  h2{font-family:var(--mincho);font-weight:600;font-size:25px;letter-spacing:.01em;margin:0 0 6px;padding-top:14px;border-top:2px solid var(--ink);display:inline-block}
+  .sechead{border-top:2px solid var(--ink);padding-top:16px;margin-bottom:24px}
+  .sechead h2{border:0;padding:0;margin:0}
+  .sechead .kicker{font-size:13px;color:var(--sub);margin:4px 0 0}
+
+  p{margin:0 0 14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:14px}
+  .card h3{margin:0 0 8px;font-size:16px;font-weight:700}
+  .muted{color:var(--sub);font-size:14.5px}
+
+  /* flow */
+  .flow{display:flex;flex-direction:column;gap:0}
+  .step{display:flex;gap:16px;align-items:flex-start;position:relative;padding:2px 0}
+  .step .num{flex:none;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;font-variant-numeric:tabular-nums;z-index:1}
+  .step .body{padding-bottom:22px}
+  .step .body b{font-size:15.5px}
+  .step .body p{margin:2px 0 0;font-size:14px;color:var(--sub)}
+  .step:not(:last-child)::before{content:"";position:absolute;left:16.5px;top:34px;bottom:0;width:2px;background:var(--line)}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .mode{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .mode .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;margin-bottom:10px}
+  .t-note{background:#e8f1ee;color:var(--accent-deep)}
+  .t-th{background:#eaeef7;color:var(--violet)}
+  .t-pin{background:#fdf1e3;color:var(--amber)}
+  .mode ul{margin:8px 0 0;padding-left:18px}
+  .mode li{font-size:13.5px;margin:4px 0;color:var(--sub)}
+
+  ul.clean{list-style:none;padding:0;margin:0}
+  ul.clean>li{position:relative;padding:9px 0 9px 26px;border-bottom:1px solid var(--line);font-size:14.5px}
+  ul.clean>li:last-child{border-bottom:0}
+  ul.clean>li::before{content:"";position:absolute;left:4px;top:17px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  ul.clean b{color:var(--ink)}
+
+  /* prompt blocks */
+  .pblock{margin:16px 0}
+  .plabel{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+  .plabel .pnum{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700}
+  .plabel .ptitle{font-weight:700;font-size:15.5px}
+  .plabel .pfn{font-family:var(--mono);font-size:12px;color:var(--sub)}
+  pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.75;white-space:pre;tab-size:2}
+  pre .c{color:var(--code-dim)}
+  .note-inline{font-size:13px;color:var(--sub);margin:6px 2px 0}
+
+  .callout{background:#eef4f1;border:1px solid #d6e4dd;border-left:4px solid var(--accent);border-radius:10px;padding:16px 18px;margin:14px 0}
+  .callout b{color:var(--accent-deep)}
+  .foot{margin-top:70px;padding-top:18px;border-top:1px solid var(--line);font-size:13px;color:var(--sub)}
+  code.k{font-family:var(--mono);font-size:.9em;background:#ecebe5;padding:1px 6px;border-radius:5px}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">仕様 ＆ プロンプト解説書</p>
+  <h1>affi-note-threads</h1>
+  <p class="lead">セミナー誘導などの LP（ランディングページ）を1枚貼るだけで、それを“紹介する”note記事と Threads 投稿を自動生成する、アフィリエイト専用ツール。どの分野の案件でも、LP を貼り替えれば使えます。</p>
+  <div class="links">
+    <a href="https://github.com/atsushi0706/affi-note-threads">GitHub（コード全部）</a>
+    <a href="https://aistudio.google.com/app/apikey">Gemini APIキー（無料）</a>
+  </div>
+
+  <!-- 概要 -->
+  <section>
+    <div class="sechead">
+      <h2>これは何をするもの？</h2>
+      <p class="kicker">ひとことで言うと</p>
+    </div>
+    <div class="card">
+      <p style="margin:0"><b>LP を「元ネタ」にして、読者に価値提供しながら自然にその LP へ誘導する文章を、毎回ちがう切り口で量産するツール。</b>投稿の自動化はせず、<b>文章づくりまで</b>を助けます（できた文章はコピーして手動で投稿）。</p>
+    </div>
+    <ul class="clean">
+      <li><b>汎用</b> ── LP を貼り替えるだけで、副業・AI・健康・メンタル…どの分野でも対応</li>
+      <li><b>BYO-key</b> ── 利用者が各自の Gemini 無料キーを入れる。キーもプロフィールも各自のブラウザにだけ保存（サーバー保存なし）</li>
+      <li><b>立ち位置は“紹介者”</b> ── LP を書いた本人にはならない。読者に役立つ話をして、別枠で「興味あればこちら」と案内する</li>
+      <li><b>毎回ちがう</b> ── 同じ LP でも、生成のたびに切り口をランダムに振り、内容の重複を防ぐ</li>
+    </ul>
+  </section>
+
+  <!-- 使い方 -->
+  <section>
+    <div class="sechead">
+      <h2>使い方（5ステップ）</h2>
+      <p class="kicker">利用者が画面でやること</p>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="num">1</div><div class="body"><b>Gemini APIキーを入れる</b><p>Google AI Studio で無料取得。ブラウザにだけ保存される。</p></div></div>
+      <div class="step"><div class="num">2</div><div class="body"><b>紹介する LP の全文を貼る</b><p>これが記事の元ネタ。貼り替えれば別案件にも使える。</p></div></div>
+      <div class="step"><div class="num">3</div><div class="body"><b>（任意）自分の設定を入れる</b><p>「あなたは何者か」「普段の言葉サンプル」「LPのURL」。書くほど“その人らしく”なる。各自のブラウザに自動保存。</p></div></div>
+      <div class="step"><div class="num">4</div><div class="body"><b>方向性を5案出す → 1つ選ぶ</b><p>被りを防ぐため、書く角度を先に決める。選ばず“おまかせ”も可。🎲で振り直し。</p></div></div>
+      <div class="step"><div class="num">5</div><div class="body"><b>生成 → コピーして投稿</b><p>note記事／Threads 5本／ピン止め3連投から選ぶ。出た文章をコピーして手動投稿。</p></div></div>
+    </div>
+  </section>
+
+  <!-- 処理の流れ -->
+  <section>
+    <div class="sechead">
+      <h2>内部の処理の流れ</h2>
+      <p class="kicker">ボタンを押すと、AI が段階を追って考える（チェーン方式・一撃生成はしない）</p>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="num">①</div><div class="body"><b>LP分析</b><p>LP全文から「ターゲット・悩み・提供価値・ジャンル・誘導ゴール」を抽出（JSON）。</p></div></div>
+      <div class="step"><div class="num">②</div><div class="body"><b>Web検索リサーチ（毎回・自動）</b><p>アメリカ(英語圏)の最新情報を検索し、具体的なツール名・今すぐ試せる使い方を集める。Gemini の Google検索グラウンディング機能を使用。</p></div></div>
+      <div class="step"><div class="num">③</div><div class="body"><b>方向性を5案提案</b><p>LPに一部つながる、互いに被らない切り口を5つ。ユーザーが1つ選ぶ（or おまかせ）。</p></div></div>
+      <div class="step"><div class="num">④</div><div class="body"><b>モード別に生成</b><p>note / Threads / ピン止め のいずれかを、①〜③＋書き手設定＋ランダムな切り口をすべて材料に生成。</p></div></div>
+    </div>
+    <p class="note-inline">※ ①②③ の結果はキャッシュされ、同じLPなら使い回してAPIコストを節約。LPを変えるとやり直し。</p>
+  </section>
+
+  <!-- モード -->
+  <section>
+    <div class="sechead">
+      <h2>3つの生成モード</h2>
+      <p class="kicker">note はリンクOK・Threads はURL非表示、と媒体の性質に合わせる</p>
+    </div>
+    <div class="grid">
+      <div class="mode">
+        <span class="tag t-note">note記事</span>
+        <p class="muted" style="margin:0 0 6px"><b>ONE HACK（H→A→C→K）構成の1本</b></p>
+        <ul>
+          <li>冒頭「こんにちは。この記事では〜」</li>
+          <li>【案内ボックス】= CTAコピー＋LPのURL（別軸のお知らせ）</li>
+          <li>本稿 = 価値提供（売り込まない）</li>
+          <li>【案内ボックス】末尾にもう一度</li>
+          <li>2000字前後・タグ5個</li>
+        </ul>
+      </div>
+      <div class="mode">
+        <span class="tag t-th">Threads 5本</span>
+        <p class="muted" style="margin:0 0 6px"><b>1セット＝2投稿（フック＋リプライ）</b></p>
+        <ul>
+          <li>①メイン投稿＝フック2〜3行（8型・強化）</li>
+          <li>②リプライ＝本文（価値提供・スマホ改行）</li>
+          <li>内訳：価値提供×3／つぶやき問いかけ×1／誘導×1</li>
+          <li>URLは貼らず、プロフ/ピン止めへ誘導</li>
+        </ul>
+      </div>
+      <div class="mode">
+        <span class="tag t-pin">ピン止め 3連投</span>
+        <p class="muted" style="margin:0 0 6px"><b>プロフィール固定用の「看板」</b></p>
+        <ul>
+          <li>Part1＝フック＋共感（H+A）</li>
+          <li>Part2＝核心（C）</li>
+          <li>Part3＝誘導（K）</li>
+          <li>短さ最優先（各100〜250字）</li>
+        </ul>
+      </div>
+      <div class="mode">
+        <span class="tag t-th">方向性 5案</span>
+        <p class="muted" style="margin:0 0 6px"><b>生成前の“角度決め”</b></p>
+        <ul>
+          <li>職業別・悩み別・誤解の訂正 などに散らす</li>
+          <li>LPに一部だけつなげる（要約・宣伝にしない）</li>
+          <li>毎回ランダムで振り直せる</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 設計思想 -->
+  <section>
+    <div class="sechead">
+      <h2>全モードに共通する設計思想</h2>
+      <p class="kicker">どのプロンプトにも土台として注入される考え方</p>
+    </div>
+    <ul class="clean">
+      <li><b>書き手＝マイケル・マスターソンの手法を日本人向けにした20年選手のプロ。</b>「アフィリエイターです」とは名乗らない。</li>
+      <li><b>書く前に「何を・誰に・どの順番で」を設計する。</b>One Big Idea（たった1つの核心）＋4つのU（役立つ／今知る理由／独自／超具体的）。“どう言うか”より“届け方”。</li>
+      <li><b>情報を教えるのではなく、今すぐ使えるものをプレゼントする。</b>「海外で○○ってツールが出た→こう使える→試してみて」。これが信頼を生む。</li>
+      <li><b>リサーチした具体（固有名詞・数字・実例）を主役に。</b>抽象的な未来予測や一般論で字数を埋めない。</li>
+      <li><b>Rule of One。</b>ターゲット1人・アイデア1つ・感情1つ・行動1つに絞る。</li>
+      <li><b>本稿と誘導は別軸。</b>本文では売り込まず、誘導は独立した案内ボックス／ソフト誘導だけで完結。</li>
+      <li><b>ジャンルで書き方を自動で変える。</b>ビジネス系＝具体的な取り入れ方／メンタル系＝海外研究を“中学生でも分かる言葉”に。</li>
+    </ul>
+  </section>
+
+  <!-- プロンプト -->
+  <section>
+    <div class="sechead">
+      <h2>実際のプロンプト（全文）</h2>
+      <p class="kicker">ファイル: <code class="k">lib/prompts.ts</code> ／ モデル: gemini-3.1-flash →（混雑時）2.5-flash →2.5-flash-lite</p>
+    </div>
+
+    <div class="callout">
+      <b>読み方 ──</b> 生成プロンプト（note / Threads / ピン止め）は、下の「A. 共通の土台ブロック」が先頭に連結され、そのあとにモード固有の指示が続く…という組み立てになっています。まず土台を、次に各モードを見てください。
+    </div>
+
+    <h3 style="font-family:var(--mincho);font-weight:600;font-size:19px;margin:34px 0 4px">A. 共通の土台ブロック</h3>
+    <p class="muted" style="margin:0 0 8px">毎回すべての生成プロンプトの先頭に差し込まれる、書き手の"格"と考え方。</p>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">土台</span><span class="ptitle">書き手の立ち位置と設計思想</span><span class="pfn">writerStance()</span></div>
+<pre># あなたは誰か（最重要）
+あなたは、マイケル・マスターソン（Michael Masterson）のダイレクトレスポンス・
+コピーライティングを日本人向けにアレンジして20年以上書いてきた、プロのコピーライターです。
+ある無料オファー(LP)を読者に"紹介する"立場ですが、これは【内部設定】です。
+- 「アフィリエイターの〇〇です」とは名乗らない。肩書き・実績をわざとらしく出さない。
+- LPを書いた本人になりきらない（「私が開発した」等はNG）。LPの売り文句をそのまま転載しない。
+- 売り込みは本文でしない。誘導は本文と切り離した"案内"に置く（後述）。
+
+# プロの設計：書く前に「何を・誰に・どの順番で」を必ず決める（最重要）
+※「どう言うか」（表現・言い回し）は本質ではない。プロは"届け方の設計"で質を出す。
+- 誰に(Who): たった1人の読者を定める。その人が今どの段階にいるか
+  （問題にまだ気づいていない／気づいている／解決策を探している）を見極め、それに合わせる。
+- 何を(What): 【One Big Idea＝この記事/投稿で伝える、たった1つの大きな核心】を、
+  リサーチで調べた具体的な事実・最新動向・データ・実例から立てる。約束(promise)は具体的に。
+- どの順番で(Order): 読者の段階に合った説得の流れで構成する。
+  例) 関心を掴む → なぜ今これが重要か → 調べた事実・証拠で納得させる → 具体的にどう活きるか → 小さな次の一歩。
+- マスターソンの「4つのU」を効かせる:
+  Useful(役立つ)／Urgent(今これを知る理由)／Unique(独自の切り口)／Ultra-specific(超具体的)。
+- One Big Idea の中身は、リサーチした具体（固有名詞・数字・実例・最新動向）で支える。一般論で薄く埋めない。
+
+# 読者に"今すぐ使えるもの"をプレゼントする（最重要・これが信頼を生む）
+- 情報を「教える・説明する」だけでは足りない。読者が【今日すぐできる具体的なもの】を手渡す（プレゼントする）。
+- リサーチで調べたアメリカの最新の具体的なツール・使い方・ノウハウを、
+  「例えば海外で○○というツールが出た。これは△△ができる。あなたの□□に、こう使える。試してみて」と、
+  具体的なツール名・手順つきで手渡す。
+- 抽象的な未来予測（"AIが時間の壁を破壊する"）や、一般論の説明（"複数のエージェントが連携する"）は
+  中身ではない。具体的なツール名・今すぐできる手順を出す。
+- どの分野でも同じ。海外(アメリカ)の最新ノウハウを調べ、読者がその場で動ける形に翻訳して贈る。</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">土台</span><span class="ptitle">その他の注入ブロック</span><span class="pfn">ctx / genreStyle / writerContext / dailyDirection / angleContext / researchContext</span></div>
+<pre><span class="c"># ctx() … LP分析の結果を毎回埋め込む</span>
+# この案件の分析（紹介の土台。そのまま転載はしない）
+- ジャンル / ターゲット読者 / 読者の悩み / この案件が提供する価値 / 独自の切り口 / 誘導ゴール / トーン
+
+<span class="c"># genreStyle() … ジャンルを自動判定して書き方を変える</span>
+・ビジネス/AI系 → 抽象論で終わらせず【具体的な取り入れ方】を見せる
+  （「〇〇な職業ならこう使える」「私はこう使う」「こう使う人がいる」）
+・メンタル/心理系 → 海外研究を根拠にしてよいが ①小難しい言葉NG ②専門用語は必ず言い換え
+  ③中学生でも分かる表現 ④権威で脅さない
+
+<span class="c"># writerContext() … 利用者が入れた「何者か・言葉サンプル」を注入</span>
+# 書き手について（この人格・立場・語り口で書く）
+- 何者か（立場・プロフィール）: （入力値）
+- 普段の言葉遣い・文体サンプル: （入力値。"雰囲気"だけ参考にし、決まり文句はコピーしない）
+
+<span class="c"># dailyDirection() … 毎回ランダムで振る「今日の切り口」（内部メモ）</span>
+- 今はだいたい ○年○月 頃（※季節感のためだけ。日付や「今年も半分」等は本文に書かない）
+- 切り口の時間軸（過去/今/トレンド）・今日の切り口のヒント
+  ※ ヒントは出発点。そのまま本文に書かず、昨日までと違う角度で。
+
+<span class="c"># angleContext() … STEP3.5で選ばれた方向性（あれば最優先）</span>
+# 今回書く方向性（これに沿って書く・最優先）
+- テーマ / 切り口 / 誰向け / 提供価値
+
+<span class="c"># researchContext() … STEP2のリサーチ結果を注入</span>
+# リサーチ素材（Web検索で集めた実在の情報。捏造しない）
+## エビデンス / ## 専門家・著名人の言葉 / ## 核の洞察・1アイデア・1感情・1行動</pre>
+    </div>
+
+    <h3 style="font-family:var(--mincho);font-weight:600;font-size:19px;margin:40px 0 4px">B. 各ステップのプロンプト</h3>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 1</span><span class="ptitle">LP分析</span><span class="pfn">analyzePrompt(lpText)</span></div>
+<pre>あなたはダイレクトレスポンスマーケティングの専門家です。
+以下はアフィリエイト/集客用のLP（ランディングページ）の全文です。
+note・Threadsで「この案件を紹介する」コンテンツを作るための材料を抽出してください。
+
+# LP全文
+"""（LP本文がここに入る）"""
+
+# 抽出タスク（LPの内容だけを根拠に。捏造しない）
+- target: 想定読者像（具体的に）
+- painPoints: 読者が抱える悩み・課題（3〜5個）
+- benefits: この案件が提供する価値（3〜5個）
+- uniqueAngle: この案件ならではの切り口・独自の主張（1文）
+- goal: LPの最終誘導ゴール（例: 無料セミナー登録）
+- tone: ふさわしい文体・トーン（1文）
+- genre: ジャンル（ビジネス/副業、心理、健康、スピリチュアル、恋愛、日常 など）
+- searchKeywords: Threadsで「〇〇で検索してみて」と誘導できそうな語句（3個）
+
+JSONのみを出力。</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 2</span><span class="ptitle">Web検索リサーチ（グラウンディング）</span><span class="pfn">researchPrompt(a)</span></div>
+<pre>あなたは優秀なリサーチャーです。Google検索で【アメリカ(英語圏)の最新情報】を実際に調べ、
+読者に"今すぐ使える具体的なもの"を手渡すための素材を集めてください。
+
+【テーマ・ジャンル】（分析結果）／【読者】／【読者の悩み】
+
+# リサーチ指示（最重要）
+1. 英語でアメリカの最新情報を検索する（日本語のまとめサイトに頼らない）。
+   LPと同じ方向性の、最新のノウハウ・ツール・やり方を探す。
+2. 集めるのは抽象的な動向ではなく、【具体的なツール名・サービス名・今すぐ試せる使い方・
+   実践手順・最新の事例】。読者がそのまま手を動かせるレベルの具体で。
+3. 実在を確認したものだけ（絶対に捏造しない）。出典URLを記録する。
+4. ジャンルに合わせて（AI/ツール系＝具体ツールと使い方／メンタル系＝海外研究＋今日試せる手順）。
+5. 「読者が今日すぐ試せること」を必ず複数見つける。
+
+# 出力（JSON）: evidence[] / expertQuotes[] / keyInsight / oneIdea / oneEmotion / oneAction</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 2.5</span><span class="ptitle">方向性を5案提案</span><span class="pfn">anglesPrompt(a, r, o)</span></div>
+      <p class="note-inline">※ 先頭に「A. 共通の土台ブロック」が連結されたうえで、以下が続く。</p>
+<pre>あなたはコンテンツ戦略家です。
+この案件（アフィリLP）に関連して、note・Threadsで書ける「記事/投稿の方向性」を【5案】
+提案してください。毎回違う、互いに被らない多様な角度で出すこと。
+
+# 方向性の作り方（重複を避ける核心）
+- 5案は互いに重複させない。LPの中心テーマだけに寄らず、周辺の角度に散らす:
+  職業別/状況別の取り入れ方・特定の悩み別・よくある誤解の訂正・ビフォーアフター・
+  「私はこう使う」「こう使う人がいる」・初心者のつまずき など。
+- 各案はLPの案件に"一部"つながるが、LP全体の要約・宣伝にはしない。
+- ジャンルの実態に即した、具体的で現実的な方向性にする。
+
+# 出力（JSON配列・5件）: { id, theme, angle, whoFor, value }</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 3-a</span><span class="ptitle">note記事</span><span class="pfn">notePrompt(a, r, o)</span></div>
+      <p class="note-inline">※ 先頭に「A. 共通の土台ブロック」が連結されたうえで、以下が続く。</p>
+<pre>あなたはプロのコピーライター兼ブロガーです。note記事を1本書いてください。
+
+# 記事の構造（必ずこの順番。本稿と案内は"別軸"）
+1. 冒頭の一言:「こんにちは。この記事では〇〇について書きます」。
+   肩書きやアフィリエイトである旨は名乗らない。すぐ本題へ入る。
+2. 【冒頭の案内ボックス】本文とは独立した"お知らせ"として置く。
+3. 本稿（記事の主役）: ONE HACK（H→A→C→K）で構成する。
+   - H（フック・2〜3行）: 読者の頭に【良い謎】を作る強い掴み。漠然とした断定・薄い煽りはNG。
+     なぞかけ系や逆説「なぜ○○（常識と逆）をすると△△が手に入るのか、知ってますか？」など。
+   - A:「あなたが悪いんじゃない、構造の問題」と寄り添い、見えない仕組みに目を向けさせる
+   - C: リサーチで調べた具体的な事実・実例を【主役】に、たった1つの新しい気づきを提示。
+        一般論や感情で埋めない
+   - K: 読者が今日できる小さな一歩を提案して着地
+4. 【末尾の案内ボックス】本稿を締めたあと、再び本文と切り離して置く。
+
+# 案内ボックスの作り方（冒頭・末尾共通）
+LP分析を元に「案件の魅力を端的に表した、思わずクリックしたくなる1〜2文の誘い文句(CTAコピー)」を
+あなたが作り、次の形式にする。冒頭と末尾に同じものを置く:
+  ━━━━━━━━━━━━━━
+  （CTAコピー1〜2文。例:「9時〜15時の働き方でも8年連続で年商億超え。
+    その秘訣をこちらから、無料公開しています。」）
+  ▶ （LPのURL）
+  ━━━━━━━━━━━━━━
+
+# 絶対ルール
+- 本稿では売り込まない。誘導は案内ボックスだけで完結。本文と案内は別軸。
+- Rule of One（ターゲット1人・アイデア1つ・感情1つ・行動1つ）。
+- 紹介者の視点を保つ。リサーチ素材は捏造しない。2000字前後・見出しは ##。
+
+# 出力（JSON）: { title, body, tags[5] }</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 3-b</span><span class="ptitle">Threads 5本</span><span class="pfn">threadsPrompt(a, r, o)</span></div>
+      <p class="note-inline">※ 先頭に「A. 共通の土台ブロック」が連結されたうえで、以下が続く。</p>
+<pre>あなたはThreads運用に精通したコピーライターです。Threadsの投稿を【5本】作ってください。
+
+# 投稿の型（1セットを"2つの投稿"に分ける・最重要）
+■ 1段目＝メイン投稿（hook）: フックだけ。冒頭2〜3行・100〜150字。指を止めさせる強い掴み。
+  - 弱いフックNG（漠然とした断定・薄い煽り）。読者の頭に【良い謎】を作る。
+    なぞかけ／逆説「なぜ○○すると△△が手に入るのか？」が特に強い。
+  - 強い名詞を冒頭に。「、」でダラダラ繋げず短く改行。
+  - フック8型から選ぶ（5本で違う型・連発しない）:
+    ①損失回避 ②自己開示 ③否定提示 ④数字提示 ⑤変化提示 ⑥問いかけ ⑦比較対比 ⑧リスト
+■ 2段目＝リプライ（body）: フックにぶら下げる価値提供の本体・200〜350字。
+  - リサーチした具体的な事実・実例を主役に、「で、どうすればいいか」まで出し切る。
+  - スマホ用に1行15〜25字で改行。
+
+# 5本の内訳（タイプを散らす）
+- 3本: 価値提供型 — リサーチしたアメリカの具体ツール・ノウハウを「今すぐできる形」で贈る。
+- 1本: つぶやき系の問いかけ型 — 交流用の軽い投稿。
+    その分野の「3大〇〇」を挙げる形が効く。例)「AIって何使ってる？ ChatGPT？ Claude？ Gemini？」
+    ＋「○○(作業)で悩んでて、おすすめあったら教えて」。どの分野でも同じ発想。
+- 1本: 誘導あり型 — 価値提供＋プロフィール/ピン止めへのソフト誘導。
+
+# ルール: 本文にURLを貼らない。誘導はプロフィール/固定投稿だけ。時間表現(「さっき見た」等)禁止。
+
+# 出力（JSON配列）: { no, type, hook, body, hasCta } を5件（value×3／talk×1／soft_cta×1）</pre>
+    </div>
+
+    <div class="pblock">
+      <div class="plabel"><span class="pnum">STEP 3-c</span><span class="ptitle">Threads ピン止め 3連投</span><span class="pfn">threadsPinPrompt(a, r, o)</span></div>
+      <p class="note-inline">※ 先頭に「A. 共通の土台ブロック」が連結されたうえで、以下が続く。</p>
+<pre>あなたはThreads運用に精通したコピーライターです。
+プロフィールに【ピン止め（固定）】する投稿を、3連投で作ってください。
+プロフィール訪問者が最初に読む「看板」です。
+
+# 構成（ONE HACK: H→A→C→K の流れ・短く。長くしない）
+- Part1 = H＋A: 短いフック2〜3行（良い謎。なぞかけ／逆説）＋「あなたが悪いんじゃない、構造の問題」。
+- Part2 = C: 核心。この投稿だけで得られる気づきを"1つ"、リサーチした具体を主役に。
+- Part3 = K: 今日できる小さな一歩＋「プロフィールのリンクから受け取れます」で締める。
+
+# 鉄則（短さ最優先）
+- Part1=100〜180字 / Part2=150〜250字 / Part3=80〜130字。長くしない。スマホ用に短く改行。
+
+# 出力（JSON配列）: { no, role, body } を3件</pre>
+    </div>
+  </section>
+
+  <!-- 技術 -->
+  <section>
+    <div class="sechead">
+      <h2>技術仕様（渡す相手が開発者の場合）</h2>
+      <p class="kicker">コード一式は GitHub に。ローカルは <code class="k">npm install && npm run dev</code></p>
+    </div>
+    <ul class="clean">
+      <li><b>フレームワーク</b> ── Next.js 16（App Router）。Vercel にデプロイ。環境変数は不要</li>
+      <li><b>AI</b> ── Gemini API を REST直叩き（依存ゼロ）。<code class="k">gemini-3.1-flash</code> →混雑時 <code class="k">2.5-flash</code> →<code class="k">2.5-flash-lite</code> へ自動フォールバック＋指数バックオフ再試行</li>
+      <li><b>キー方式</b> ── BYO-key。利用者のキーは <code class="k">localStorage</code> 保存、サーバーは保存もログもしない（通信はHTTPS・生成時にGoogleへ渡すだけ）</li>
+      <li><b>設定の保存</b> ── 何者か・言葉サンプル・LPのURL・LP本文・時間軸を各自のブラウザに自動保存</li>
+      <li><b>主要ファイル</b> ── <code class="k">app/page.tsx</code>（UI）／ <code class="k">app/api/generate/route.ts</code>（チェーンAPI）／ <code class="k">lib/prompts.ts</code>（本書のプロンプト）／ <code class="k">lib/gemini.ts</code>（ラッパー）</li>
+    </ul>
+  </section>
+
+  <p class="foot">affi-note-threads — 内部仕様書。生成物は必ず手直ししてから使うこと（無料AIのため文脈が不自然になる場合あり）。プロンプトは <code class="k">lib/prompts.ts</code> が正本です。</p>
+
+</div>
+</body></html>
