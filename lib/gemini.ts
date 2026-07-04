@@ -2,13 +2,16 @@
 // 最新の3系を優先し、混雑・未対応なら順に安定モデルへフォールバックする。
 // （秘書AI/冊子ジェネレーターと同じ「最新→ダメなら別」の思想）
 
-// 注意: "gemini-3.1-flash"(無印) は存在せず必ず404になる（実在は -lite / -image 派生のみ）。
-// 先頭に無効モデルを置くと毎回404で1往復ぶん時間を無駄にし、タイムアウトの一因になる。
-// 無料で安定＆検索グラウンディング対応の 2.5-flash を主軸にする。
+// モデル選定（2026-07-04 時点の実在モデルで確認済み）:
+//   ※ "gemini-3.1-flash"(無印) はテキスト生成には存在しない（＝今は画像モデル/Nano Banana 2 を指す）。
+//     旧コードはこれを先頭に置いていたため毎回404 → こっそり 2.5 系に落ちており、
+//     「内容がヘン」の一因になっていた。
+//   最新・最高品質の gemini-3.5-flash を主軸にし、フォールバックも 3.x 系で固める
+//   （品質を落とさないため 2.5 系には落とさない）。いずれも grounding / JSON 対応。
 const MODELS = [
-  "gemini-2.5-flash", // 主軸：無料で安定・grounding対応
-  "gemini-flash-latest", // Google管理の最新安定flashエイリアス
-  "gemini-2.5-flash-lite", // 最終手段（無料枠が一番多い）
+  "gemini-3.5-flash", // 主軸：最新・frontier級。内容品質が最も高い
+  "gemini-flash-latest", // Google管理の「最新安定flash」エイリアス（現状3.x系）
+  "gemini-3.1-flash-lite", // 最終手段（高速・安価だが3.x系で品質を維持）
 ];
 const endpoint = (m: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
