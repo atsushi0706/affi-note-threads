@@ -115,6 +115,7 @@ export default function Page() {
   const [loading, setLoading] = useState<GenerateMode | null>(null);
   const [phase, setPhase] = useState(""); // 「リサーチ中…」「執筆中…」などの進捗表示
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(""); // 検索なしで書いた等の注意喚起（エラーではない）
 
   // 初回：このブラウザに保存した内容を復元（何百人が各自のブラウザで使う前提）
   useEffect(() => {
@@ -154,16 +155,22 @@ export default function Page() {
 
   async function generate(mode: GenerateMode) {
     setError("");
+    setNotice("");
     setLoading(mode);
     setActiveMode(mode);
     const dir = buildDirection();
     try {
-      // STEP A: 分析＋リサーチ。未取得なら prep で必ず実行（リサーチ無しでは書かない）。
+      // STEP A: 分析＋リサーチ。未取得なら prep で実行。
       let curAnalysis = analysis;
       let curResearch = research;
+      let allowNoResearch = false;
       if (!curAnalysis || !curResearch) {
         setPhase("🔎 Web検索でリサーチ中…（30秒ほどかかります）");
-        const prep = await readResult<{ analysis: Analysis; research: unknown }>(
+        const prep = await readResult<{
+          analysis: Analysis;
+          research: unknown;
+          researchFailed?: boolean;
+        }>(
           await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -176,12 +183,29 @@ export default function Page() {
           })
         );
         curAnalysis = prep.analysis;
-        curResearch = prep.research;
         setAnalysis(prep.analysis);
-        setResearch(prep.research);
+        if (prep.researchFailed) {
+          // リサーチ失敗（無料枠切れ等）。黙ってスキップせず、ユーザーに確認する。
+          const ok = window.confirm(
+            "Web検索の無料枠が切れています。今回は検索なしで書きますか？（内容は一般論寄りになります）"
+          );
+          if (!ok) {
+            throw new Error(
+              "中止しました。新しいGemini APIキーを作って入れ直すと、Web検索つきで再開できます（無料枠は毎日リセットされます）。"
+            );
+          }
+          curResearch = null;
+          allowNoResearch = true;
+          setNotice(
+            "⚠️ 今回はWeb検索なしで作成しました（無料枠切れ）。より深い記事にするには、新しいGemini APIキーを作って入れ直してください。"
+          );
+        } else {
+          curResearch = prep.research;
+          setResearch(prep.research);
+        }
       }
 
-      // STEP B: 本文生成（リサーチ済みの内容を必ず渡す）。
+      // STEP B: 本文生成。
       setPhase("✍️ 執筆中…");
       const data = await readResult<{ result: unknown }>(
         await fetch("/api/generate", {
@@ -193,6 +217,7 @@ export default function Page() {
             lpText,
             analysis: curAnalysis,
             research: curResearch,
+            allowNoResearch,
             options: {
               lpUrl,
               chosenAngle: chosenAngle ?? undefined,
@@ -416,6 +441,14 @@ export default function Page() {
       </div>
 
       {error ? <div className="err">{error}</div> : null}
+      {notice ? (
+        <div
+          className="err"
+          style={{ background: "#fff7ed", color: "#9a3412", borderColor: "#fed7aa" }}
+        >
+          {notice}
+        </div>
+      ) : null}
 
       {/* 分析結果 */}
       {analysis ? (

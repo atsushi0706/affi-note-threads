@@ -24,9 +24,10 @@ export const maxDuration = 60;
 // そこで重い工程を「短いリクエスト」に分割し、フロントが順に叩く：
 //   prep  = LP分析 ＋ Web検索リサーチ（重い。これだけを単独で完走させる）
 //   angles= 方向性のアイデア出し（リサーチ不要・軽い）
-//   note/threads/threads-pin = 本文生成（prepで取得したリサーチを必ず使う）
-// 「リサーチ無しで本文を書く」フォールバックは廃止。リサーチが取れなければ
-// 黙って薄い記事を返さず、正直にエラーを返す。
+//   note/threads/threads-pin = 本文生成（prepで取得したリサーチを使う）
+// 原則リサーチ必須。ただしWeb検索の無料枠切れ等でprepが失敗したときは、
+// フロントでユーザーに「検索なしで書く？」と確認し、同意した場合のみ
+// allowNoResearch=true で検索なし生成を許可する（黙ってスキップはしない）。
 type Mode = GenerateMode | "prep";
 
 type Body = {
@@ -35,6 +36,7 @@ type Body = {
   lpText?: string;
   analysis?: Analysis; // 2回目以降は使い回してコスト削減
   research?: Research | null; // prepで取得済みのものを本文生成で再利用
+  allowNoResearch?: boolean; // ユーザー同意のもと、検索なしで書くことを許可
   options?: Options;
   review?: boolean; // note記事に自己レビューを挟むか
 };
@@ -59,12 +61,23 @@ export async function POST(req: NextRequest) {
     }
 
     // prep: 分析＋リサーチだけを返す。重い検索グラウンディングはこの1リクエストに隔離。
-    // リサーチは必須 — 失敗したら握りつぶさず throw して正直にエラーを返す。
+    // リサーチに失敗しても（無料枠切れ/混雑等）握りつぶさず、分析は返しつつ
+    // researchFailed を立てて「検索なしで書くか」の判断をフロントに委ねる。
     if (mode === "prep") {
-      const research = body.research ?? parseJson<Research>(
-        await callGemini(apiKey, researchPrompt(analysis), { json: true, search: true, temperature: 0.6 })
-      );
-      return NextResponse.json({ analysis, research });
+      if (body.research) {
+        return NextResponse.json({ analysis, research: body.research });
+      }
+      try {
+        const raw = await callGemini(apiKey, researchPrompt(analysis), {
+          json: true,
+          search: true,
+          temperature: 0.6,
+        });
+        return NextResponse.json({ analysis, research: parseJson<Research>(raw) });
+      } catch (e) {
+        const researchError = e instanceof Error ? e.message : "Web検索に失敗しました。";
+        return NextResponse.json({ analysis, research: null, researchFailed: true, researchError });
+      }
     }
 
     // angles: 方向性のアイデア出し。web検索は不要なので軽い。
@@ -76,32 +89,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ analysis, result: parseJson(raw) });
     }
 
-    // ここから本文生成（note / threads / threads-pin）。リサーチは prep 済みが前提。
-    // リサーチ無しでは絶対に書かない。
+    // ここから本文生成（note / threads / threads-pin）。原則リサーチ必須。
+    // リサーチが無い場合、ユーザー同意（allowNoResearch）があるときだけ検索なしで書く。
     const research = body.research ?? null;
-    if (research === null) {
+    if (research === null && !body.allowNoResearch) {
       return NextResponse.json(
         { error: "リサーチが未完了です。先にリサーチを実行してください。" },
         { status: 400 }
       );
     }
+    const r = research ?? undefined; // 同意済みなら検索なし（undefined）で生成
 
     let result: unknown;
     if (mode === "threads") {
-      const raw = await callGemini(apiKey, threadsPrompt(analysis, research, options), {
+      const raw = await callGemini(apiKey, threadsPrompt(analysis, r, options), {
         json: true,
         temperature: 1.0,
       });
       result = parseJson(raw);
     } else if (mode === "threads-pin") {
-      const raw = await callGemini(apiKey, threadsPinPrompt(analysis, research, options), {
+      const raw = await callGemini(apiKey, threadsPinPrompt(analysis, r, options), {
         json: true,
         temperature: 1.0,
       });
       result = parseJson(raw);
     } else {
       // note
-      let raw = await callGemini(apiKey, notePrompt(analysis, research, options), {
+      let raw = await callGemini(apiKey, notePrompt(analysis, r, options), {
         json: true,
         temperature: 0.9,
       });
