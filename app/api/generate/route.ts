@@ -3,7 +3,6 @@ import { callGemini, parseJson } from "@/lib/gemini";
 import {
   analyzePrompt,
   researchPrompt,
-  researchPromptSearch,
   anglesPrompt,
   notePrompt,
   threadsPrompt,
@@ -61,36 +60,23 @@ export async function POST(req: NextRequest) {
       analysis = parseJson<Analysis>(raw);
     }
 
-    // prep: 分析＋リサーチだけを返す。リサーチはハイブリッド:
-    //   ① まず Web検索グラウンディングを試す（有料キー等で使えるならライブ検索が最良）。
-    //      無料枠では即429になるので短時間(25秒)で見切る。
-    //   ② 検索が使えなければ AIの知識ベース（通常の生成枠で確実に動く）へフォールバック。
-    //   ③ どちらも失敗したら researchFailed を返し、フロントで「リサーチなしで書くか」確認。
+    // prep: 分析＋リサーチだけを返す。リサーチはAIの知識ベース（Web検索は無料枠で
+    // 使えず、全員が無料キー前提なので使わない）＝通常の生成枠で確実に動く。
+    // 万一失敗しても握りつぶさず、分析は返しつつ researchFailed を立てて
+    // 「リサーチなしで書くか」の判断をフロントに委ねる。
     if (mode === "prep") {
       if (body.research) {
         return NextResponse.json({ analysis, research: body.research });
       }
-      // ① Web検索（使えるなら）
       try {
-        const raw = await callGemini(apiKey, researchPromptSearch(analysis), {
+        const raw = await callGemini(apiKey, researchPrompt(analysis), {
           json: true,
-          search: true,
           temperature: 0.6,
-          timeoutMs: 20_000, // 無料枠は即429。stallしても20秒で見切り知識ベースへ
         });
-        return NextResponse.json({ analysis, research: parseJson<Research>(raw), researchMode: "search" });
-      } catch {
-        // ② AIの知識ベースへフォールバック
-        try {
-          const raw = await callGemini(apiKey, researchPrompt(analysis), {
-            json: true,
-            temperature: 0.6,
-          });
-          return NextResponse.json({ analysis, research: parseJson<Research>(raw), researchMode: "knowledge" });
-        } catch (e) {
-          const researchError = e instanceof Error ? e.message : "リサーチに失敗しました。";
-          return NextResponse.json({ analysis, research: null, researchFailed: true, researchError });
-        }
+        return NextResponse.json({ analysis, research: parseJson<Research>(raw) });
+      } catch (e) {
+        const researchError = e instanceof Error ? e.message : "リサーチに失敗しました。";
+        return NextResponse.json({ analysis, research: null, researchFailed: true, researchError });
       }
     }
 

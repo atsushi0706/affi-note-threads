@@ -28,9 +28,7 @@ const PER_ATTEMPT_MS = 40_000;
 export async function callGemini(
   apiKey: string,
   prompt: string,
-  // timeoutMs: この呼び出しを短時間で見切りたいとき（例: 検索を試して
-  // ダメなら知識ベースに素早くフォールバックする用）に指定する。
-  opts: { json?: boolean; temperature?: number; search?: boolean; timeoutMs?: number } = {}
+  opts: { json?: boolean; temperature?: number; search?: boolean } = {}
 ): Promise<string> {
   // Google検索グラウンディング(search)とJSON modeは併用しない。
   // search時はプロンプト側で「末尾にJSON」を指示し、parseJsonで取り出す。
@@ -45,8 +43,7 @@ export async function callGemini(
   });
 
   const MAX_RETRY = 2; // 各モデルあたりの一時エラー再試行回数
-  const perAttempt = Math.min(opts.timeoutMs ?? PER_ATTEMPT_MS, PER_ATTEMPT_MS);
-  const deadline = Date.now() + Math.min(opts.timeoutMs ?? TOTAL_DEADLINE_MS, TOTAL_DEADLINE_MS); // これ以上は暴走とみなして打ち切る
+  const deadline = Date.now() + TOTAL_DEADLINE_MS; // これ以上は暴走とみなして打ち切る
   let lastDetail = "";
   let sawTransient = false;
   let sawQuota = false;
@@ -59,7 +56,7 @@ export async function callGemini(
       if (remaining <= 0) break; // 総時間切れ → これ以上リトライで暴れない
       let res: Response;
       const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), Math.min(perAttempt, remaining));
+      const timer = setTimeout(() => ac.abort(), Math.min(PER_ATTEMPT_MS, remaining));
       try {
         res = await fetch(`${endpoint(model)}?key=${encodeURIComponent(apiKey)}`, {
           method: "POST",
