@@ -2,9 +2,12 @@
 // 最新の3系を優先し、混雑・未対応なら順に安定モデルへフォールバックする。
 // （秘書AI/冊子ジェネレーターと同じ「最新→ダメなら別」の思想）
 
+// 注意: "gemini-3.1-flash"(無印) は存在せず必ず404になる（実在は -lite / -image 派生のみ）。
+// 先頭に無効モデルを置くと毎回404で1往復ぶん時間を無駄にし、タイムアウトの一因になる。
+// 無料で安定＆検索グラウンディング対応の 2.5-flash を主軸にする。
 const MODELS = [
-  "gemini-3.1-flash", // 最新世代を優先
-  "gemini-2.5-flash", // 安定・無料
+  "gemini-2.5-flash", // 主軸：無料で安定・grounding対応
+  "gemini-flash-latest", // Google管理の最新安定flashエイリアス
   "gemini-2.5-flash-lite", // 最終手段（無料枠が一番多い）
 ];
 const endpoint = (m: string) =>
