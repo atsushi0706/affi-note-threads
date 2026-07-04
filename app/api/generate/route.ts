@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
       analysis = parseJson<Analysis>(raw);
     }
 
-    // prep: 分析＋リサーチだけを返す。重い検索グラウンディングはこの1リクエストに隔離。
-    // リサーチに失敗しても（無料枠切れ/混雑等）握りつぶさず、分析は返しつつ
-    // researchFailed を立てて「検索なしで書くか」の判断をフロントに委ねる。
+    // prep: 分析＋リサーチだけを返す。リサーチはAIの知識ベース（Web検索は無料枠で
+    // 使えないため不使用）＝通常の生成枠で動く。万一失敗しても握りつぶさず、分析は
+    // 返しつつ researchFailed を立てて「リサーチなしで書くか」の判断をフロントに委ねる。
     if (mode === "prep") {
       if (body.research) {
         return NextResponse.json({ analysis, research: body.research });
@@ -70,12 +70,11 @@ export async function POST(req: NextRequest) {
       try {
         const raw = await callGemini(apiKey, researchPrompt(analysis), {
           json: true,
-          search: true,
           temperature: 0.6,
         });
         return NextResponse.json({ analysis, research: parseJson<Research>(raw) });
       } catch (e) {
-        const researchError = e instanceof Error ? e.message : "Web検索に失敗しました。";
+        const researchError = e instanceof Error ? e.message : "リサーチに失敗しました。";
         return NextResponse.json({ analysis, research: null, researchFailed: true, researchError });
       }
     }

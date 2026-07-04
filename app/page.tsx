@@ -165,7 +165,7 @@ export default function Page() {
       let curResearch = research;
       let allowNoResearch = false;
       if (!curAnalysis || !curResearch) {
-        setPhase("🔎 Web検索でリサーチ中…（30秒ほどかかります）");
+        setPhase("🔎 リサーチ中…");
         const prep = await readResult<{
           analysis: Analysis;
           research: unknown;
@@ -185,19 +185,17 @@ export default function Page() {
         curAnalysis = prep.analysis;
         setAnalysis(prep.analysis);
         if (prep.researchFailed) {
-          // リサーチ失敗（無料枠切れ等）。黙ってスキップせず、ユーザーに確認する。
+          // リサーチ工程が一時的に失敗。黙ってスキップせず、ユーザーに確認する。
           const ok = window.confirm(
-            "Web検索の無料枠が切れています。今回は検索なしで書きますか？（内容は一般論寄りになります）"
+            "リサーチ工程が一時的に失敗しました。今回はリサーチなしで書きますか？（内容は一般論寄りになります）"
           );
           if (!ok) {
-            throw new Error(
-              "中止しました。新しいGemini APIキーを作って入れ直すと、Web検索つきで再開できます（無料枠は毎日リセットされます）。"
-            );
+            throw new Error("中止しました。少し時間をおいて、もう一度お試しください。");
           }
           curResearch = null;
           allowNoResearch = true;
           setNotice(
-            "⚠️ 今回はWeb検索なしで作成しました（無料枠切れ）。より深い記事にするには、新しいGemini APIキーを作って入れ直してください。"
+            "⚠️ 今回はリサーチなしで作成しました。もう一度実行すると、リサーチ付きで書ける場合があります。"
           );
         } else {
           curResearch = prep.research;
@@ -385,7 +383,7 @@ export default function Page() {
         </div>
 
         <p className="hint" style={{ marginTop: 4 }}>
-          💡 文章を作るときは、毎回かならずWeb検索で最新情報を調べてから書きます（自動）。
+          💡 文章を作るときは、毎回かならずリサーチ工程（AIが要点を整理）を挟んでから書きます（自動）。
         </p>
       </div>
 
@@ -435,7 +433,7 @@ export default function Page() {
         {!ready ? <p className="hint" style={{ marginTop: 8 }}>STEP1とSTEP2を入れると押せます。</p> : null}
         {busy ? (
           <p className="spinner" style={{ marginTop: 10 }}>
-            {phase || "つくっています…（分析→Web検索リサーチ→執筆。少し時間がかかります）"}
+            {phase || "つくっています…（分析→リサーチ→執筆。少し時間がかかります）"}
           </p>
         ) : null}
       </div>

@@ -134,8 +134,25 @@ export async function callGemini(
   throw new Error(`Gemini API エラー: ${lastDetail.slice(0, 200) || "原因不明"}`);
 }
 
-// JSONレスポンスを安全にパース（```json フェンスにも対応）
+// JSONレスポンスを安全にパース（```json フェンス／前後の説明文にも対応）
 export function parseJson<T>(raw: string): T {
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  return JSON.parse(cleaned) as T;
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    // モデルがJSONの前後に説明文を付けることがある。
+    // 最初の { または [ から、対応する末尾の } または ] までを取り出して再挑戦。
+    const firstObj = cleaned.indexOf("{");
+    const firstArr = cleaned.indexOf("[");
+    const cands = [firstObj, firstArr].filter((i) => i >= 0);
+    const start = cands.length ? Math.min(...cands) : -1;
+    if (start >= 0) {
+      const close = cleaned[start] === "{" ? "}" : "]";
+      const end = cleaned.lastIndexOf(close);
+      if (end > start) {
+        return JSON.parse(cleaned.slice(start, end + 1)) as T;
+      }
+    }
+    throw new Error("Geminiの応答をJSONとして読み取れませんでした。もう一度お試しください。");
+  }
 }
