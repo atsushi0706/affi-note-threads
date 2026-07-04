@@ -12,6 +12,13 @@ const endpoint = (m: string) =>
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// 1回のcallGemini（モデルフォールバック＋リトライ全部込み）が暴走して器を
+// 食い尽くさないための総時間の上限。これを超えたら諦めるのではなく throw して、
+// 呼び出し元が「正直にエラーを出す」方に倒す（黙ってリサーチ無しで進めない）。
+const TOTAL_DEADLINE_MS = 50_000;
+// 1回のfetch単体に許す最大待ち時間（残り時間と小さい方を採用）。
+const PER_ATTEMPT_MS = 40_000;
+
 export async function callGemini(
   apiKey: string,
   prompt: string,
@@ -30,6 +37,7 @@ export async function callGemini(
   });
 
   const MAX_RETRY = 2; // 各モデルあたりの一時エラー再試行回数
+  const deadline = Date.now() + TOTAL_DEADLINE_MS; // これ以上は暴走とみなして打ち切る
   let lastDetail = "";
   let sawTransient = false;
 
@@ -37,15 +45,20 @@ export async function callGemini(
   for (const model of MODELS) {
     let giveUpThisModel = false;
     for (let attempt = 0; attempt <= MAX_RETRY && !giveUpThisModel; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break; // 総時間切れ → これ以上リトライで暴れない
       let res: Response;
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), Math.min(PER_ATTEMPT_MS, remaining));
       try {
         res = await fetch(`${endpoint(model)}?key=${encodeURIComponent(apiKey)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body,
+          signal: ac.signal,
         });
       } catch {
-        // ネットワーク瞬断 → 同じモデルでリトライ、尽きたら次のモデルへ
+        // ネットワーク瞬断 or タイムアウト中断 → 同じモデルでリトライ、尽きたら次のモデルへ
         if (attempt < MAX_RETRY) {
           await sleep(1000 * 2 ** attempt);
           continue;
@@ -53,6 +66,8 @@ export async function callGemini(
         sawTransient = true;
         giveUpThisModel = true;
         break;
+      } finally {
+        clearTimeout(timer);
       }
 
       if (res.ok) {

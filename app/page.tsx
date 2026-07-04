@@ -56,6 +56,29 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// レスポンスを安全に読む。JSONでない本文（Vercelのタイムアウト/エラーページ等）が
+// 返ってきても、暗号のような "Unexpected token" ではなく人間に読める文言にする。
+async function readResult<T = Record<string, unknown>>(
+  res: Response
+): Promise<T> {
+  const raw = await res.text();
+  let data: T | null = null;
+  try {
+    data = raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    data = null;
+  }
+  if (!res.ok || data === null) {
+    const msg =
+      (data as { error?: string } | null)?.error ??
+      (res.status === 504 || res.status === 502 || res.status === 500
+        ? "サーバーが混雑またはタイムアウトしました。少し時間をおいて、もう一度お試しください。"
+        : `通信に失敗しました（${res.status}）。もう一度お試しください。`);
+    throw new Error(msg);
+  }
+  return data;
+}
+
 function CopyButton({ text, label = "コピー" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
@@ -90,6 +113,7 @@ export default function Page() {
   const [threadResult, setThreadResult] = useState<ThreadItem[]>([]);
   const [resultKind, setResultKind] = useState<"note" | "threads" | null>(null);
   const [loading, setLoading] = useState<GenerateMode | null>(null);
+  const [phase, setPhase] = useState(""); // 「リサーチ中…」「執筆中…」などの進捗表示
   const [error, setError] = useState("");
 
   // 初回：このブラウザに保存した内容を復元（何百人が各自のブラウザで使う前提）
@@ -134,29 +158,51 @@ export default function Page() {
     setActiveMode(mode);
     const dir = buildDirection();
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          apiKey,
-          mode,
-          lpText,
-          analysis: analysis ?? undefined,
-          research: research ?? null,
-          doResearch: true,
-          options: {
-            lpUrl,
-            chosenAngle: chosenAngle ?? undefined,
-            persona,
-            voiceSamples,
-            ...dir,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "生成に失敗しました。");
-      if (data.analysis) setAnalysis(data.analysis);
-      if (data.research) setResearch(data.research);
+      // STEP A: 分析＋リサーチ。未取得なら prep で必ず実行（リサーチ無しでは書かない）。
+      let curAnalysis = analysis;
+      let curResearch = research;
+      if (!curAnalysis || !curResearch) {
+        setPhase("🔎 Web検索でリサーチ中…（30秒ほどかかります）");
+        const prep = await readResult<{ analysis: Analysis; research: unknown }>(
+          await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              apiKey,
+              mode: "prep",
+              lpText,
+              analysis: curAnalysis ?? undefined,
+            }),
+          })
+        );
+        curAnalysis = prep.analysis;
+        curResearch = prep.research;
+        setAnalysis(prep.analysis);
+        setResearch(prep.research);
+      }
+
+      // STEP B: 本文生成（リサーチ済みの内容を必ず渡す）。
+      setPhase("✍️ 執筆中…");
+      const data = await readResult<{ result: unknown }>(
+        await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            apiKey,
+            mode,
+            lpText,
+            analysis: curAnalysis,
+            research: curResearch,
+            options: {
+              lpUrl,
+              chosenAngle: chosenAngle ?? undefined,
+              persona,
+              voiceSamples,
+              ...dir,
+            },
+          }),
+        })
+      );
       if (mode === "note") {
         setNoteResult(data.result as NoteResult);
         setResultKind("note");
@@ -168,6 +214,7 @@ export default function Page() {
       setError(e instanceof Error ? e.message : "エラーが発生しました。");
     } finally {
       setLoading(null);
+      setPhase("");
     }
   }
 
@@ -185,15 +232,12 @@ export default function Page() {
           mode: "angles",
           lpText,
           analysis: analysis ?? undefined,
-          research: research ?? null,
-          doResearch: true,
+          // 方向性出しはアイデア出しなのでWeb検索リサーチは挟まない（軽く速く）。
           options: { ...dir },
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "方向性の取得に失敗しました。");
+      const data = await readResult<{ analysis?: Analysis; result: unknown }>(res);
       if (data.analysis) setAnalysis(data.analysis);
-      if (data.research) setResearch(data.research);
       setAngles((data.result as Angle[]) || []);
       setChosenAngle(null);
     } catch (e: unknown) {
@@ -366,7 +410,7 @@ export default function Page() {
         {!ready ? <p className="hint" style={{ marginTop: 8 }}>STEP1とSTEP2を入れると押せます。</p> : null}
         {busy ? (
           <p className="spinner" style={{ marginTop: 10 }}>
-            つくっています…（Web検索→分析→執筆。少し時間がかかります）
+            {phase || "つくっています…（分析→Web検索リサーチ→執筆。少し時間がかかります）"}
           </p>
         ) : null}
       </div>
