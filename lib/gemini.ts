@@ -46,6 +46,7 @@ export async function callGemini(
   const deadline = Date.now() + TOTAL_DEADLINE_MS; // これ以上は暴走とみなして打ち切る
   let lastDetail = "";
   let sawTransient = false;
+  let sawQuota = false;
 
   // モデルを順に試す（最新 → フォールバック）
   for (const model of MODELS) {
@@ -95,7 +96,15 @@ export async function callGemini(
         giveUpThisModel = true;
         break;
       }
-      // 一時的なエラー（503=混雑 / 500 / 429 / 408 等）→ 同モデルで再試行
+      // 無料枠の使い切り（429 RESOURCE_EXHAUSTED）→ 数秒待っても回復しない（1日単位の上限）。
+      // 全モデルは同じプロジェクト枠を共有するので、リトライも他モデルも無駄。即あきらめ、
+      // 「混雑」ではなく正直に「枠切れ」として伝える。特にWeb検索(grounding)は無料枠が小さい。
+      if (res.status === 429 && /quota|RESOURCE_EXHAUSTED|exceeded/i.test(detail)) {
+        sawQuota = true;
+        giveUpThisModel = true;
+        break;
+      }
+      // 一時的なエラー（503=混雑 / 500 / 408 / 一部429 等）→ 同モデルで再試行
       const transient = [408, 429, 500, 502, 503, 504].includes(res.status);
       if (transient) {
         sawTransient = true;
@@ -113,6 +122,12 @@ export async function callGemini(
   }
 
   // すべてのモデルで失敗
+  if (sawQuota) {
+    throw new Error(
+      "Geminiの無料利用枠の上限に達しました（特にWeb検索は無料枠が小さめです）。" +
+        "枠は毎日リセットされます。時間をおくか、別のAPIキーでお試しください。"
+    );
+  }
   if (sawTransient) {
     throw new Error("Geminiが混雑しています（一時的）。数十秒おいて、もう一度生成してください。");
   }
